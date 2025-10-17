@@ -1,0 +1,13 @@
+﻿Designator,Footprint,Quantity,Value,LCSC Part #
+AE1,PinHeader_1x02_P2.54mm_Vertical,1,Antenna_Loop,
+C1,0402,4,C,C1567
+C2,0402,4,C,C15195
+C3,0402,4,C,C1523
+C4,0402,4,C,C1523
+D1,SOT-523,2,D_Schottky_Dual_Series_AKC_Parallel,C2919808
+D2,SOT-523,2,D_Schottky_Dual_Series_AKC_Parallel,C2919808
+J1,PinHeader_1x04_P2.54mm_Vertical,1,Conn_01x04_Pin,
+R1,0402,3,R,C11702
+R2,0402,3,R,C11702
+R3,0402,3,R,C25123
+U1,VQFN-20-1EP_3x3mm_P0.4mm_EP1.7x1.7mm,1,ATtiny1616-M,C507118
