@@ -232,14 +232,14 @@ bool write_without_encryption(packet_t command)
     return true;
 }
 
-void dump_command(packet_t command)
+void print_packet(packet_t packet)
 {
-    int len = command[0];
+    int len = packet[0];
 
     for (int i = 1; i < len; i++)
     {
         char hex_str[5];
-        sprintf(hex_str, "%02X", command[i]);
+        sprintf(hex_str, "%02X", packet[i]);
         Serial_print(hex_str);
         if (i != len - 1)
             Serial_print(" ");
@@ -326,7 +326,7 @@ packet_t process(packet_t command)
     // pass through
     default:
         Serial_println("Unknown command received:");
-        dump_command(command);
+        print_packet(command);
         return nullptr;
     }
 
