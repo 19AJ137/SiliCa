@@ -254,7 +254,7 @@ void send_response(packet_t response)
 
     enable_transmit(true);
 
-    // guard time
+    // stabilize output
     for (int i = 0; i < 10; i++)
         SPI_transfer(0xFF);
 
