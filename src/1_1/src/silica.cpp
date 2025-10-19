@@ -168,7 +168,7 @@ packet_t receive_command()
     // skip sync bytes
     index += 4;
 
-    // original code
+    // original code (slow)
     if (false)
     {
         int k = 0;
@@ -188,7 +188,7 @@ packet_t receive_command()
         }
     }
 
-    // AI generated code
+    // AI generated code (fast)
     int src = index * 8 + shift;
     int end = len_raw * 8;
     int dst_byte = 0;
