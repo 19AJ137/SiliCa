@@ -288,8 +288,12 @@ packet_t process(packet_t command)
     switch (command_code)
     {
     case 0x04: // Request Response
+        if (len != 10)
+            return nullptr;
+
         response[0] = 11;
         response[10] = 0x00;
+
         break;
     case 0x06: // Read Without Encryption
         if (!read_without_encryption(command))
@@ -300,6 +304,9 @@ packet_t process(packet_t command)
             return nullptr;
         break;
     case 0x0A: // Search Service Code
+        if (len != 12)
+            return nullptr;
+
         response[0] = 12;
         if (command[10] == 0x00 && command[11] == 0x00)
         {
@@ -313,6 +320,9 @@ packet_t process(packet_t command)
         }
         break;
     case 0x0C: // Request System Code
+        if (len != 10)
+            return nullptr;
+
         response[0] = 13;
 
         response[10] = 1;
@@ -325,7 +335,7 @@ packet_t process(packet_t command)
     case 0x12: // Authentication2
     // pass through
     default:
-        Serial_println("Unknown command received:");
+        Serial_println("Unsupported command:");
         print_packet(command);
         return nullptr;
     }
