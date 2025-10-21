@@ -14,7 +14,6 @@ static uint8_t EEMEM idm_eep[8];
 static uint8_t EEMEM pmm_eep[8];
 static uint8_t EEMEM sys_eep[2];
 
-
 static uint16_t service_code;
 static uint16_t EEMEM service_code_eep;
 
@@ -117,7 +116,7 @@ bool read_without_encryption(packet_t command)
         {
             response[0] = 12;    // length
             response[10] = 0xFF; // status flag 1
-            response[11] = 0xA6; // status flag 2
+            response[11] = 0xA8; // status flag 2
             return true;
         }
     }
@@ -207,7 +206,7 @@ bool write_without_encryption(packet_t command)
         {
             response[0] = 12;    // length
             response[10] = 0xFF; // status flag 1
-            response[11] = 0xA6; // status flag 2
+            response[11] = 0xA8; // status flag 2
             return true;
         }
     }
@@ -230,21 +229,6 @@ bool write_without_encryption(packet_t command)
     response[11] = 0x00; // status flag 2
 
     return true;
-}
-
-void print_packet(packet_t packet)
-{
-    int len = packet[0];
-
-    for (int i = 1; i < len; i++)
-    {
-        char hex_str[5];
-        sprintf(hex_str, "%02X", packet[i]);
-        Serial_print(hex_str);
-        if (i != len - 1)
-            Serial_print(" ");
-    }
-    Serial_println("");
 }
 
 packet_t process(packet_t command)
@@ -298,6 +282,11 @@ packet_t process(packet_t command)
     case 0x06: // Read Without Encryption
         if (!read_without_encryption(command))
             return nullptr;
+        if (response[10] != 0x00)
+        {
+            Serial_print("Read failed: ");
+            print_packet(command);
+        }
         break;
     case 0x08: // Write Without Encryption
         if (!write_without_encryption(command))
@@ -335,10 +324,23 @@ packet_t process(packet_t command)
     case 0x12: // Authentication2
     // pass through
     default:
-        Serial_println("Unsupported command:");
-        print_packet(command);
         return nullptr;
     }
 
     return response;
+}
+
+void print_packet(packet_t packet)
+{
+    int len = packet[0];
+
+    for (int i = 1; i < len; i++)
+    {
+        char hex_str[5];
+        sprintf(hex_str, "%02X", packet[i]);
+        Serial_print(hex_str);
+        if (i != len - 1)
+            Serial_print(" ");
+    }
+    Serial_println("");
 }
