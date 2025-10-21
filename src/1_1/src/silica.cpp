@@ -152,10 +152,11 @@ bool get_index_and_shift(int &index, int &shift)
     return true;
 }
 
-void decode_manchester(int src, int end)
+// original code
+void decode_manchester(int begin, int end)
 {
     int k = 0;
-    for (int j = src; j < end; j += 2)
+    for (int j = begin; j < end; j += 2)
     {
         int l = j / 8;
         int m = 7 - j % 8;
@@ -168,6 +169,58 @@ void decode_manchester(int src, int end)
 
         buf[p] |= n << q;
         k++;
+    }
+}
+
+// AI generated code
+void decode_manchester_fast(int begin, int end)
+{
+    // Number of decoded bits (one bit per two raw bits)
+    int decoded_bits = (end - begin + 1) / 2;
+    if (decoded_bits <= 0)
+        return;
+
+    int out_bytes = (decoded_bits + 7) / 8;
+    if (out_bytes > (int)sizeof(buf))
+        out_bytes = sizeof(buf);
+
+    // clear only bytes we will write
+    memset(buf, 0, out_bytes);
+
+    // input position as byte index and bit offset (0..7, MSB-first)
+    int in_byte = begin >> 3;
+    int in_bit_offset = begin & 7; // 0 = MSB of byte, 7 = LSB
+
+    // output position
+    int out_byte = 0;
+    int out_bit_pos = 7; // MSB-first
+
+    for (int i = 0; i < decoded_bits; ++i)
+    {
+        // compute bit index in input byte (MSB-first)
+        int in_bit_index = 7 - in_bit_offset;
+        uint8_t bit = (raw_buf[in_byte] >> in_bit_index) & 1;
+
+        buf[out_byte] |= bit << out_bit_pos;
+
+        // advance output position
+        if (out_bit_pos == 0)
+        {
+            out_bit_pos = 7;
+            ++out_byte;
+        }
+        else
+        {
+            --out_bit_pos;
+        }
+
+        // advance input by 2 bits (we sample every second bit)
+        in_bit_offset += 2;
+        if (in_bit_offset >= 8)
+        {
+            in_byte += in_bit_offset >> 3;
+            in_bit_offset &= 7;
+        }
     }
 }
 
@@ -187,19 +240,16 @@ packet_t receive_command()
         return nullptr;
 
     if (false)
-    {
         print_raw_data(raw_len);
-        return nullptr;
-    }
 
     int index, shift;
     if (!get_index_and_shift(index, shift))
         return nullptr;
 
-    int src = index * 8 + shift;
+    int begin = index * 8 + shift;
     int end = raw_len * 8;
 
-    decode_manchester(src, end);
+    decode_manchester_fast(begin, end);
 
     if (!check_edc())
     {
@@ -236,10 +286,10 @@ void send_response(packet_t response)
     // compute EDC (Error Detection Code) in advance
     uint16_t edc = crc16(response, len);
 
-    // enabling transmit makes some noise, so delay a bit
+    // enabling transmit causes noise; wait briefly for the signal to settle
     enable_transmit(true);
-    SPI_transfer(0xFF);
-    SPI_transfer(0xFF);
+    for (int i = 0; i < 10; i++)
+        SPI_transfer(0xFF);
 
     // send header
     for (int i = 0; i < LEN_HEADER; i++)
@@ -266,9 +316,9 @@ void setup()
     _PROTECTED_WRITE(CLKCTRL.MCLKCTRLA, CLKCTRL_CLKSEL_EXTCLK_gc);
     _PROTECTED_WRITE(CLKCTRL.MCLKCTRLB, CLKCTRL_PDIV_4X_gc | CLKCTRL_ENABLE_bm);
 
-    // enable Analog Comparator 0 (AC0) with 50mV hysteresis
+    // enable Analog Comparator 0 (AC0) with 10mV hysteresis
     PORTA.DIRSET = PIN5_bm;
-    AC0.CTRLA = AC_OUTEN_bm | AC_HYSMODE_50mV_gc | AC_ENABLE_bm;
+    AC0.CTRLA = AC_OUTEN_bm | AC_HYSMODE_10mV_gc | AC_ENABLE_bm;
 
     // configure SPI
     PORTMUX.CTRLB |= PORTMUX_SPI0_ALTERNATE_gc;
