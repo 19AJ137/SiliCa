@@ -12,7 +12,7 @@ static const uint8_t header[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB2, 0x4D}
 const int LEN_HEADER = sizeof(header);
 
 uint8_t buf[0x110] = {};
-uint8_t rx_buf[0x220] = {};
+uint8_t raw_buf[0x220] = {};
 
 void Serial_write(uint8_t b)
 {
@@ -35,20 +35,6 @@ void Serial_println(const char *s)
     Serial_print("\r\n");
 }
 
-void enable_transmit(bool mode)
-{
-    if (mode)
-    {
-        PORTC.DIRSET = PIN1_bm;
-        CCL.CTRLA = CCL_ENABLE_bm;
-    }
-    else
-    {
-        CCL.CTRLA = 0;
-        PORTC.DIRCLR = PIN1_bm;
-    }
-}
-
 uint16_t crc16(const uint8_t *data, int len)
 {
     uint16_t crc = 0;
@@ -57,7 +43,7 @@ uint16_t crc16(const uint8_t *data, int len)
     return crc;
 }
 
-uint8_t SPI_transfer(uint8_t data)
+uint8_t SPI_transfer(uint8_t data = 0)
 {
     while ((SPI0.INTFLAGS & SPI_DREIF_bm) == 0)
     {
@@ -67,7 +53,48 @@ uint8_t SPI_transfer(uint8_t data)
     return SPI0.DATA;
 }
 
-int get_shift(uint8_t sync)
+void read_raw_data(int &raw_len)
+{
+    for (int i = 0; i < sizeof(raw_buf); i++)
+    {
+        uint8_t data = SPI_transfer();
+
+        raw_buf[i] = data;
+
+        // end of frame
+        if (data == 0x00 || data == 0xFF)
+        {
+            // too short frame
+            if (i < LEN_HEADER * 2)
+            {
+                i = -1;
+                continue;
+            }
+            else
+            {
+                raw_len = i + 1;
+                return;
+            }
+        }
+    }
+}
+
+void print_raw_data(int raw_len)
+{
+    Serial_println("BEGIN");
+    for (int i = 0; i < raw_len; i++)
+    {
+        char hex_str[5];
+        sprintf(hex_str, "%02X", raw_buf[i]);
+        Serial_print(hex_str);
+        if (i != raw_len - 1)
+            Serial_print(" ");
+    }
+    Serial_println("");
+    Serial_println("END");
+}
+
+int get_shift_from_sync(uint8_t sync)
 {
     switch (sync)
     {
@@ -101,137 +128,94 @@ int get_shift(uint8_t sync)
     }
 }
 
-packet_t receive_command()
+bool get_index_and_shift(int &index, int &shift)
 {
-    enable_transmit(false);
-
-    int len_raw = -1;
-    for (int i = 0; i < sizeof(rx_buf); i++)
-    {
-        uint8_t data = SPI_transfer(0);
-
-        rx_buf[i] = data;
-
-        // end of frame
-        if (data == 0x00 || data == 0xFF)
-        {
-            // too short frame
-            if (i < LEN_HEADER * 2)
-            {
-                i = -1;
-                continue;
-            }
-            else
-            {
-                len_raw = i + 1;
-                break;
-            }
-        }
-    }
-    if (len_raw < 0)
-        return nullptr;
-
-    if (false)
-    {
-        Serial_println("BEGIN");
-        for (int i = 0; i < len_raw; i++)
-        {
-            char hex_str[5];
-            sprintf(hex_str, "%02X", rx_buf[i]);
-            Serial_print(hex_str);
-            if (i != len_raw - 1)
-                Serial_print(" ");
-        }
-        Serial_println("");
-        Serial_println("END");
-
-        return nullptr;
-    }
-
-    int index;
     // skip preambles
-    for (index = 1; index < sizeof(rx_buf); index++)
+    for (index = 1; index < sizeof(raw_buf); index++)
     {
-        if (rx_buf[index] != 0x55 && rx_buf[index] != 0xAA)
+        if (raw_buf[index] != 0x55 && raw_buf[index] != 0xAA)
             break;
     }
 
     // preamble too short
     if (index < 10)
-        return nullptr;
+        return false;
 
     // get shift from first sync byte
-    int shift = get_shift(rx_buf[index]);
+    shift = get_shift_from_sync(raw_buf[index]);
     if (shift < 0)
-        return nullptr;
+        return false;
 
     // skip sync bytes
     index += 4;
 
-    // original code (slow)
-    if (false)
+    return true;
+}
+
+void decode_manchester(int src, int end)
+{
+    int k = 0;
+    for (int j = src; j < end; j += 2)
     {
-        int k = 0;
-        for (int j = index * 8 + shift; j < len_raw * 8; j += 2)
-        {
-            int l = j / 8;
-            int m = 7 - j % 8;
-            int n = (rx_buf[l] >> m) & 1;
+        int l = j / 8;
+        int m = 7 - j % 8;
+        int n = (raw_buf[l] >> m) & 1;
 
-            int p = k / 8;
-            int q = 7 - k % 8;
-            if (q == 7)
-                buf[p] = 0;
+        int p = k / 8;
+        int q = 7 - k % 8;
+        if (q == 7)
+            buf[p] = 0;
 
-            buf[p] |= n << q;
-            k++;
-        }
+        buf[p] |= n << q;
+        k++;
     }
+}
 
-    // AI generated code (fast)
-    int src = index * 8 + shift;
-    int end = len_raw * 8;
-    int dst_byte = 0;
-    int dst_bit = 7;
-    int src_byte = src >> 3;
-    int src_bit_pos = 7 - (src & 7);
-    uint8_t src_cur = rx_buf[src_byte];
-
-    // assemble bits two-at-a-time from rx_buf into buf, avoid divisions/mods each loop
-    while (src < end)
-    {
-        uint8_t bit = (src_cur >> src_bit_pos) & 1;
-        if (dst_bit == 7)
-            buf[dst_byte] = 0;
-        buf[dst_byte] |= bit << dst_bit;
-
-        dst_bit--;
-        if (dst_bit < 0)
-        {
-            dst_byte++;
-            dst_bit = 7;
-        }
-
-        src += 2;
-        src_bit_pos -= 2;
-        if (src_bit_pos < 0)
-        {
-            src_byte = src >> 3;
-            src_cur = rx_buf[src_byte];
-            src_bit_pos = 7 - (src & 7);
-        }
-    }
-
+bool check_edc()
+{
     int len = buf[0];
 
-    // check EDC
-    if (crc16(buf, len + 2) != 0)
+    return crc16(buf, len + 2) == 0;
+}
+
+packet_t receive_command()
+{
+    int raw_len = -1;
+    read_raw_data(raw_len);
+
+    if (raw_len < 0)
+        return nullptr;
+
+    if (false)
+    {
+        print_raw_data(raw_len);
+        return nullptr;
+    }
+
+    int index, shift;
+    if (!get_index_and_shift(index, shift))
+        return nullptr;
+
+    int src = index * 8 + shift;
+    int end = raw_len * 8;
+
+    decode_manchester(src, end);
+
+    if (!check_edc())
     {
         Serial_println("EDC error");
         return nullptr;
     }
 
     return buf;
+}
+
+void enable_transmit(bool enable)
+{
+    if (enable)
+        CCL.CTRLA = CCL_ENABLE_bm;
+    else
+        CCL.CTRLA = 0;
 }
 
 void tx_byte(uint8_t b)
@@ -252,11 +236,10 @@ void send_response(packet_t response)
     // compute EDC (Error Detection Code) in advance
     uint16_t edc = crc16(response, len);
 
+    // enabling transmit makes some noise, so delay a bit
     enable_transmit(true);
-
-    // stabilize output
-    for (int i = 0; i < 10; i++)
-        SPI_transfer(0xFF);
+    SPI_transfer(0xFF);
+    SPI_transfer(0xFF);
 
     // send header
     for (int i = 0; i < LEN_HEADER; i++)
@@ -273,6 +256,8 @@ void send_response(packet_t response)
     // flash buffer
     SPI_transfer(0xFF);
     SPI_transfer(0xFF);
+
+    enable_transmit(false);
 }
 
 void setup()
@@ -305,12 +290,9 @@ void setup()
     TCA0.SINGLE.CMP2 = 5; // shift phase
     TCA0.SINGLE.CTRLA = TCA_SINGLE_ENABLE_bm;
 
-    // CCL
+    // adjust CCL (Configurable Custom Logic) for modulation
     PORTMUX.CTRLA |= PORTMUX_LUT0_ALTERNATE_gc;
     PORTMUX.CTRLA |= PORTMUX_LUT1_ALTERNATE_gc;
-
-    PORTB.DIRSET = PIN4_bm; // LUT0-OUT ALT
-    PORTC.DIRSET = PIN1_bm; // LUT1-OUT ALT
 
     CCL.CTRLA = 0;
 
@@ -326,8 +308,6 @@ void setup()
 
     CCL.LUT0CTRLA = CCL_OUTEN_bm | CCL_ENABLE_bm; // set OUTEN to avoid errata
     CCL.LUT1CTRLA = CCL_CLKSRC_bm | CCL_FILTSEL0_bm | CCL_OUTEN_bm | CCL_ENABLE_bm;
-
-    CCL.CTRLA = CCL_ENABLE_bm;
 
     // configure USART for Serial output
     PORTMUX.CTRLB |= PORTMUX_USART0_ALTERNATE_gc;
@@ -352,7 +332,11 @@ void loop()
 
     packet_t response = process(command);
     if (response == nullptr)
+    {
+        Serial_print("Unsupported command: ");
+        print_packet(command);
         return;
+    }
 
     send_response(response);
 }

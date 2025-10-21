@@ -11,3 +11,5 @@ void Serial_println(const char *);
 
 void initialize();
 packet_t process(packet_t);
+
+void print_packet(packet_t);
