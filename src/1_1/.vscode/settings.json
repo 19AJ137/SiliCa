@@ -22,6 +22,7 @@
         "fclk",
         "HYSMODE",
         "INTCTRL",
+        "kbps",
         "MCLKCTRLA",
         "MCLKCTRLB",
         "MSPI",
