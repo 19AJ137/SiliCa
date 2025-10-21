@@ -6,19 +6,19 @@
 #include <avr/eeprom.h>
 #include "silica.h"
 
-uint8_t idm[8];
-uint8_t pmm[8];
-uint8_t sys[2];
+static uint8_t idm[8];
+static uint8_t pmm[8];
+static uint8_t sys[2];
 
 static uint8_t EEMEM idm_eep[8];
 static uint8_t EEMEM pmm_eep[8];
 static uint8_t EEMEM sys_eep[2];
 
-constexpr int BLOCK_MAX = 12;
 
-uint16_t service_code;
-static uint16_t EEMEM *service_code_eep;
+static uint16_t service_code;
+static uint16_t EEMEM service_code_eep;
 
+static constexpr int BLOCK_MAX = 12;
 static uint8_t EEMEM block_data_eep[16 * BLOCK_MAX];
 
 static uint8_t response[0xFF] = {};
@@ -31,7 +31,7 @@ void initialize()
     eeprom_read_block(pmm, pmm_eep, 8);
     eeprom_read_block(sys, sys_eep, 2);
 
-    service_code = eeprom_read_word(service_code_eep);
+    service_code = eeprom_read_word(&service_code_eep);
 }
 
 bool polling(packet_t command)
@@ -222,7 +222,7 @@ bool write_without_encryption(packet_t command)
 
     service_code = target_service_code;
     eeprom_busy_wait();
-    eeprom_update_word(service_code_eep, service_code);
+    eeprom_update_word(&service_code_eep, service_code);
 
     response[0] = 12; // length
 
