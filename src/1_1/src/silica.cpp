@@ -316,9 +316,10 @@ void setup()
     _PROTECTED_WRITE(CLKCTRL.MCLKCTRLA, CLKCTRL_CLKSEL_EXTCLK_gc);
     _PROTECTED_WRITE(CLKCTRL.MCLKCTRLB, CLKCTRL_PDIV_4X_gc | CLKCTRL_ENABLE_bm);
 
-    // enable Analog Comparator 0 (AC0) with 10mV hysteresis
+    // enable Analog Comparator 0 (AC0) with 50mV hysteresis
     PORTA.DIRSET = PIN5_bm;
-    AC0.CTRLA = AC_OUTEN_bm | AC_HYSMODE_10mV_gc | AC_ENABLE_bm;
+    AC0.CTRLA = AC_OUTEN_bm | AC_HYSMODE_50mV_gc | AC_ENABLE_bm;
+    // TODO: set hysteresis to 25mV when supply voltage is low
 
     // configure SPI
     PORTMUX.CTRLB |= PORTMUX_SPI0_ALTERNATE_gc;
