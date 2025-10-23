@@ -16,7 +16,7 @@ uint8_t raw_buf[0x220] = {};
 
 void Serial_write(uint8_t b)
 {
-    while ((USART0.STATUS & USART_DREIF_bm) == 0)
+    while (!(USART0.STATUS & USART_DREIF_bm))
     {
         // do nothing
     }
@@ -35,6 +35,35 @@ void Serial_println(const char *s)
     Serial_print("\r\n");
 }
 
+uint16_t get_reference()
+{
+    ADC0.CTRLA = ADC_ENABLE_bm;
+    ADC0.COMMAND = ADC_STCONV_bm;
+    while (!(ADC0.INTFLAGS & ADC_RESRDY_bm))
+    {
+        // do nothing
+    }
+    uint16_t res = ADC0.RES;
+    ADC0.CTRLA = 0;
+    return res;
+}
+
+void adjust_hysteresis()
+{
+    uint16_t value = get_reference();
+
+    // Vcc = Vref * 1023 / value
+    if (value < 375)
+    {
+        AC0.CTRLA = AC_OUTEN_bm | AC_HYSMODE_50mV_gc | AC_ENABLE_bm;
+    }
+    else
+    {
+        // Vcc below 3V; use 25mV hysteresis
+        AC0.CTRLA = AC_OUTEN_bm | AC_HYSMODE_25mV_gc | AC_ENABLE_bm;
+    }
+}
+
 uint16_t crc16(const uint8_t *data, int len)
 {
     uint16_t crc = 0;
@@ -45,7 +74,7 @@ uint16_t crc16(const uint8_t *data, int len)
 
 uint8_t SPI_transfer(uint8_t data = 0)
 {
-    while ((SPI0.INTFLAGS & SPI_DREIF_bm) == 0)
+    while (!(SPI0.INTFLAGS & SPI_DREIF_bm))
     {
         // do nothing
     }
@@ -316,10 +345,18 @@ void setup()
     _PROTECTED_WRITE(CLKCTRL.MCLKCTRLA, CLKCTRL_CLKSEL_EXTCLK_gc);
     _PROTECTED_WRITE(CLKCTRL.MCLKCTRLB, CLKCTRL_PDIV_4X_gc | CLKCTRL_ENABLE_bm);
 
+    // configure ADC to read internal 1.1V reference
+    VREF.CTRLA = VREF_ADC0REFSEL_1V1_gc;
+
+    ADC0.CTRLA = 0;
+
+    // CLK_ADC = fclk/8 = 423.75kHz
+    ADC0.CTRLC = ADC_REFSEL_VDDREF_gc | ADC_PRESC_DIV8_gc;
+    ADC0.MUXPOS = ADC_MUXPOS_INTREF_gc;
+
     // enable Analog Comparator 0 (AC0) with 50mV hysteresis
     PORTA.DIRSET = PIN5_bm;
     AC0.CTRLA = AC_OUTEN_bm | AC_HYSMODE_50mV_gc | AC_ENABLE_bm;
-    // TODO: set hysteresis to 25mV when supply voltage is low
 
     // configure SPI
     PORTMUX.CTRLB |= PORTMUX_SPI0_ALTERNATE_gc;
@@ -377,6 +414,8 @@ void setup()
 
 void loop()
 {
+    adjust_hysteresis();
+
     packet_t command = receive_command();
     if (command == nullptr)
         return;
