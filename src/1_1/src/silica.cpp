@@ -53,14 +53,14 @@ void adjust_hysteresis()
     uint16_t value = get_reference();
 
     // Vcc = Vref * 1023 / value
-    if (value <= 375)
-    {
-        AC0.CTRLA = AC_OUTEN_bm | AC_HYSMODE_50mV_gc | AC_ENABLE_bm;
-    }
-    else
+    if (value > 375)
     {
         // Vcc below 3V; use 25mV hysteresis
         AC0.CTRLA = AC_OUTEN_bm | AC_HYSMODE_25mV_gc | AC_ENABLE_bm;
+    }
+    else
+    {
+        AC0.CTRLA = AC_OUTEN_bm | AC_HYSMODE_50mV_gc | AC_ENABLE_bm;
     }
 }
 
