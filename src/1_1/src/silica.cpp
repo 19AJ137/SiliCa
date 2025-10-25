@@ -31,7 +31,7 @@ void Serial_println(const char *str)
     Serial_print("\r\n");
 }
 
-uint8_t SPI_transfer(uint8_t data = 0)
+uint8_t SPI_transfer(uint8_t data)
 {
     while (!(SPI0.INTFLAGS & SPI_DREIF_bm))
     {
@@ -49,8 +49,8 @@ packet_t receive_command()
 void enable_transmit(bool enable)
 {
     // flash buffer
-    SPI_transfer();
-    SPI_transfer();
+    SPI_transfer(0x00);
+    SPI_transfer(0x00);
 
     if (enable)
         CCL.CTRLA = CCL_ENABLE_bm;
