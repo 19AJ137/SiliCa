@@ -3,6 +3,7 @@
         "**/*.ini"
     ],
     "cSpell.words": [
+        "ASYNCCH",
         "BODCFG",
         "BODLEVEL",
         "BUFEN",
@@ -18,6 +19,7 @@
         "EEMEM",
         "eeprom",
         "EESAVE",
+        "EVSYS",
         "EXTCLK",
         "fclk",
         "HYSMODE",
