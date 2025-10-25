@@ -3128,7 +3128,7 @@
 			(justify left bottom)
 		)
 	)
-	(gr_text "SiliCa v1.1.1"
+	(gr_text "SiliCa v1.1.2"
 		(at 115.5 93.5 0)
 		(layer "F.SilkS")
 		(uuid "b371123e-39e9-4f68-9d81-a05bf506f9ae")
