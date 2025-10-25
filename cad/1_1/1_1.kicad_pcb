@@ -167,17 +167,6 @@
 			(layer "F.CrtYd")
 			(uuid "3b6f2d81-0ca4-41d0-9f79-14a742d2ac71")
 		)
-		(fp_text user "${REFERENCE}"
-			(at 0 0 0)
-			(layer "F.Fab")
-			(uuid "57a4869c-9fa1-416d-9a08-70a045ee38aa")
-			(effects
-				(font
-					(size 1 1)
-					(thickness 0.15)
-				)
-			)
-		)
 		(pad "" np_thru_hole circle
 			(at 0 0)
 			(size 1.152 1.152)
@@ -3040,17 +3029,6 @@
 			(fill no)
 			(layer "F.CrtYd")
 			(uuid "69fe03af-f7e3-4716-90ea-5418f555525e")
-		)
-		(fp_text user "${REFERENCE}"
-			(at 0 0 0)
-			(layer "F.Fab")
-			(uuid "f9a3345b-a305-467a-995c-08cfd0e81b76")
-			(effects
-				(font
-					(size 1 1)
-					(thickness 0.15)
-				)
-			)
 		)
 		(pad "" np_thru_hole circle
 			(at 0 0)
