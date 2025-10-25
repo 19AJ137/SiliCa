@@ -48,6 +48,10 @@ packet_t receive_command()
 
 void enable_transmit(bool enable)
 {
+    // flash buffer
+    SPI_transfer();
+    SPI_transfer();
+
     if (enable)
         CCL.CTRLA = CCL_ENABLE_bm;
     else
@@ -74,10 +78,7 @@ void send_response(packet_t response)
 
     uint16_t edc = 0;
 
-    // enabling transmit causes noise; wait briefly for the signal to settle
     enable_transmit(true);
-    for (int i = 0; i < 10; i++)
-        SPI_transfer(0xFF);
 
     // send header
     for (int i = 0; i < sizeof(header); i++)
@@ -91,9 +92,6 @@ void send_response(packet_t response)
     transmit_byte(edc >> 8);
     transmit_byte(edc & 0xFF);
 
-    // flash buffer
-    SPI_transfer(0xFF);
-    SPI_transfer(0xFF);
     enable_transmit(false);
 }
 
@@ -174,6 +172,7 @@ void test_1()
 void loop()
 {
     test_1();
+    return;
 
     packet_t command = receive_command();
     if (command == nullptr)
