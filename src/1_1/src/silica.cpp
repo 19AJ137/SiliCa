@@ -74,7 +74,10 @@ void send_response(packet_t response)
 
     uint16_t edc = 0;
 
+    // enabling transmit causes noise; wait briefly for the signal to settle
     enable_transmit(true);
+    for (int i = 0; i < 10; i++)
+        SPI_transfer(0xFF);
 
     // send header
     for (int i = 0; i < sizeof(header); i++)

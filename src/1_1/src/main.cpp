@@ -1,5 +1,5 @@
+// Implementation of the application layer for
 // JIS X 6319-4 compatible card "SiliCa"
-// application layer implementation
 
 #include <stdio.h>
 #include <string.h>
