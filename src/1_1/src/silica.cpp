@@ -334,16 +334,16 @@ packet_t receive_command()
     }
 
     int len = command[0];
-    if (len + 2 != index)
+    if (len + 2 > index)
     {
         Serial_println("Length error");
         return nullptr;
     }
 
-    uint16_t calculated_edc = crc16(command, len - 2);
-    uint16_t received_edc = command[len - 2] << 8 | command[len - 1];
+    uint16_t calculated_edc = crc16(command, len);
+    uint16_t received_edc = (command[len] << 8) | command[len + 1];
 
-    if (calculated_edc ^ received_edc <= 1)
+    if ((calculated_edc ^ received_edc) <= 1)
     {
         // allow last 1-bit error
     }

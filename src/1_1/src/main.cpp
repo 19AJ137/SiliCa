@@ -396,6 +396,11 @@ packet_t process(packet_t command)
 void print_packet(packet_t packet)
 {
     int len = packet[0];
+    if (len == 0)
+    {
+        Serial_println("<empty>");
+        return;
+    }
 
     for (int i = 1; i < len; i++)
     {
