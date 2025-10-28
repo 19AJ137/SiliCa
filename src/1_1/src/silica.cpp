@@ -11,7 +11,8 @@
 
 static const uint8_t header[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB2, 0x4D};
 
-static uint8_t rx_buf[0x110] = {};
+static uint8_t rx_buf[0x220] = {};
+static uint8_t command[0x110] = {};
 
 void Serial_write(uint8_t data)
 {
@@ -52,41 +53,93 @@ uint16_t crc16(const uint8_t *buf, int len)
     return crc;
 }
 
-int get_shift_from_sync(bool &invert)
+int capture_frame()
 {
-    uint8_t sync1 = SPI_transfer();
-    while (true)
+    // wait for start of frame
+    for (int i = 0; i < sizeof(rx_buf); i++)
     {
-        uint8_t a1 = sync1 & 0xAA;
-        uint8_t b1 = sync1 & 0x55;
+        uint8_t data = SPI_transfer();
+        rx_buf[i] = data;
 
-        uint8_t sync2 = SPI_transfer();
-        uint8_t a2 = sync2 & 0xAA;
-        uint8_t b2 = sync2 & 0x55;
-
-        invert = false;
-
-        if (a1 == 0x8A && a2 == 0x08)
-            return 0;
-        if (a1 == 0x20 && a2 == 0xA2)
-            return 0;
-        if (b1 == 0x45 && b2 == 0x04)
-            return 1;
-        if (a1 == 0x22 && a2 == 0x82)
-            return 2;
-        if (b1 == 0x11 && b2 == 0x41)
-            return 3;
-        if (a1 == 0x08 && a2 == 0xA0)
-            return 4;
-        if (b1 == 0x04 && b2 == 0x50)
-            return 5;
-        if (a1 == 0x02 && a2 == 0x28)
-            return 6;
-        if (b1 == 0x01 && b2 == 0x14)
-            return 7;
-
-        sync1 = sync2;
+        // end of frame
+        if (data == 0x00 || data == 0xFF)
+        {
+            if (i < sizeof(header) * 2)
+            {
+                i = -1;
+                continue;
+            }
+            else
+            {
+                return i + 1;
+            }
+        }
     }
+    // frame too long
+    return 0;
+}
+
+void print_frame(int rx_len)
+{
+    for (int i = 0; i < rx_len; i++)
+    {
+        char hex_str[5];
+        sprintf(hex_str, "%02X", rx_buf[i]);
+        Serial_print(hex_str);
+        if (i != rx_len - 1)
+            Serial_print(" ");
+    }
+    Serial_println("");
+}
+
+int get_shift_from_sync(uint8_t sync1, uint8_t sync2)
+{
+    uint8_t a1 = sync1 & 0xAA;
+    uint8_t b1 = sync1 & 0x55;
+
+    uint8_t a2 = sync2 & 0xAA;
+    uint8_t b2 = sync2 & 0x55;
+
+    if (a1 == 0x8A && a2 == 0x08)
+        return 0;
+    if (b1 == 0x45 && b2 == 0x04)
+        return 1;
+    if (a1 == 0x22 && a2 == 0x82)
+        return 2;
+    if (b1 == 0x11 && b2 == 0x41)
+        return 3;
+    if (a1 == 0x08 && a2 == 0xA0)
+        return 4;
+    if (b1 == 0x04 && b2 == 0x50)
+        return 5;
+    if (a1 == 0x02 && a2 == 0x28)
+        return 6;
+    if (b1 == 0x01 && b2 == 0x14)
+        return 7;
+
+    return -1;
+}
+
+int get_sync_index(int rx_len, int &shift, bool &invert)
+{
+    for (int i = 0; i < rx_len - 1; i++)
+    {
+        int shift1 = get_shift_from_sync(rx_buf[i], rx_buf[i + 1]);
+        int shift2 = get_shift_from_sync(~rx_buf[i], ~rx_buf[i + 1]);
+        if (shift1 != -1 && shift1 > shift2)
+        {
+            shift = shift1;
+            invert = false;
+            return i;
+        }
+        if (shift2 != -1 && shift2 > shift1)
+        {
+            shift = shift2;
+            invert = true;
+            return i;
+        }
+    }
+    return -1;
 }
 
 uint8_t extract_data(int shift, uint8_t data1, uint8_t data2, uint8_t data3)
@@ -249,53 +302,58 @@ uint8_t extract_data(int shift, uint8_t data1, uint8_t data2, uint8_t data3)
     return x;
 }
 
-bool receive_data(int shift, bool invert)
+packet_t receive_command()
 {
-    int len = 0xFF;
-
-    uint8_t data1 = SPI_transfer();
-    for (int i = 0; i < len + 2; i++)
+    int rx_len = capture_frame();
+    if (rx_len == 0)
     {
-        uint8_t data2 = SPI_transfer();
-        uint8_t data3 = SPI_transfer();
+        Serial_println("Frame capture error");
+        return nullptr;
+    }
 
-        uint8_t x = extract_data(shift, data1, data2, data3);
+    int shift = -1;
+    bool invert;
+    int rx_index = get_sync_index(rx_len, shift, invert);
+    if (rx_index == -1)
+    {
+        Serial_println("Sync error");
+        return nullptr;
+    }
+
+    rx_index += 4;
+
+    int index = 0;
+    for (int i = rx_index; i < rx_len - 2; i += 2)
+    {
+        uint8_t x = extract_data(shift, rx_buf[i], rx_buf[i + 1], rx_buf[i + 2]);
 
         if (invert)
             x = ~x;
 
-        if (i == 0)
-            len = x;
-
-        rx_buf[i] = x;
-
-        data1 = data3;
+        command[index++] = x;
     }
 
-    return true;
-}
+    int len = command[0];
+    if (len + 2 != index)
+    {
+        Serial_println("Length error");
+        return nullptr;
+    }
 
-// receive packet from the reader or another card
-packet_t receive_packet()
-{
-    bool invert;
-    int shift = get_shift_from_sync(invert);
+    uint16_t calculated_edc = crc16(command, len - 2);
+    uint16_t received_edc = command[len - 2] << 8 | command[len - 1];
 
-    // skip the next 2 sync bytes
-    SPI_transfer();
-    SPI_transfer();
-
-    receive_data(shift, invert);
-
-    int len = rx_buf[0];
-    // check EDC
-    if (crc16(rx_buf, len + 2) != 0)
+    if (calculated_edc ^ received_edc <= 1)
+    {
+        // allow last 1-bit error
+    }
+    else
     {
         Serial_println("EDC error");
         return nullptr;
     }
 
-    return rx_buf;
+    return command;
 }
 
 void enable_transmit(bool enable)
@@ -410,24 +468,26 @@ void setup()
     Serial_println(__DATE__);
 }
 
+void test_response()
+{
+    static const uint8_t polling[20] = {20, 0x01, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xAB, 0xCD};
+    send_response(polling);
+    _delay_us(1000);
+}
+
 void loop()
 {
-    packet_t command = receive_packet();
+    packet_t command = receive_command();
     if (command == nullptr)
         return;
 
     packet_t response = process(command);
     if (response == nullptr)
     {
-        Serial_print("Unsupported command: ");
+        Serial_println("Unsupported command");
         print_packet(command);
         return;
     }
-
-    // delay for Polling command
-    // 500us + 2000us = 2.5ms
-    if (command[1] == 0x00)
-        _delay_us(2000);
 
     send_response(response);
 }
