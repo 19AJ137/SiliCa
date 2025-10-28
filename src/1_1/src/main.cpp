@@ -8,16 +8,17 @@
 
 static uint8_t idm[8];
 static uint8_t pmm[8];
-static uint8_t sys[2];
+static uint8_t sys_code[2];
 
 static uint8_t EEMEM idm_eep[8];
 static uint8_t EEMEM pmm_eep[8];
-static uint8_t EEMEM sys_eep[2];
+static uint8_t EEMEM sys_code_eep[2];
 
+static constexpr uint16_t SERVICE_MASK = 0xFFC0;
 static uint16_t service_code;
 static uint16_t EEMEM service_code_eep;
 
-static constexpr int BLOCK_MAX = 12;
+static constexpr int BLOCK_MAX = 14;
 static uint8_t EEMEM block_data_eep[16 * BLOCK_MAX];
 
 static uint8_t response[0xFF] = {};
@@ -28,15 +29,16 @@ void initialize()
     eeprom_busy_wait();
     eeprom_read_block(idm, idm_eep, 8);
     eeprom_read_block(pmm, pmm_eep, 8);
-    eeprom_read_block(sys, sys_eep, 2);
 
     service_code = eeprom_read_word(&service_code_eep);
+
+    eeprom_read_block(sys_code, sys_code_eep, 2);
 }
 
 bool polling(packet_t command)
 {
     // check target system code
-    if (!((command[2] == sys[0] || command[2] == 0xFF) && (command[3] == sys[1] || command[3] == 0xFF)))
+    if (!((command[2] == sys_code[0] || command[2] == 0xFF) && (command[3] == sys_code[1] || command[3] == 0xFF)))
         return false;
 
     // request code
@@ -61,7 +63,7 @@ bool polling(packet_t command)
     // system code request
     if (req_code == 0x01)
     {
-        memcpy(response + 18, sys, 2);
+        memcpy(response + 18, sys_code, 2);
     }
     // communication performance request
     if (req_code == 0x02)
@@ -88,7 +90,7 @@ bool read_without_encryption(packet_t command)
 
     uint16_t target_service_code = command[11] | (command[12] << 8);
 
-    if (target_service_code != service_code)
+    if ((target_service_code & SERVICE_MASK) != (service_code & SERVICE_MASK))
     {
         response[0] = 12;    // length
         response[10] = 0xFF; // status flag 1
@@ -155,37 +157,72 @@ bool write_without_encryption(packet_t command)
         return true;
     }
 
-    // system configuration mode
-    if (target_service_code == 0x0000)
+    // write system block
+    if (target_service_code == 0x0009)
     {
-        if (!(n == 1 && command[14] == 0x80 && command[15] == 0x00))
+        if (!(n == 1 && command[14] == 0x80))
             return false;
 
-        if (len < 32)
+        if (len != 32)
             return false;
 
-        // Update IDm
-        memcpy(idm, command + 16, 8);
-        eeprom_busy_wait();
-        eeprom_update_block(idm, idm_eep, 8);
+        int block_num = command[15];
+        bool valid_block = false;
 
-        // Update PMm
-        memcpy(pmm, command + 24, 8);
-        eeprom_busy_wait();
-        eeprom_update_block(pmm, pmm_eep, 8);
-
-        // Update System Code if present
-        if (len >= 34)
+        // D_ID
+        if (block_num == 0x83)
         {
-            memcpy(sys, command + 32, 2);
+            valid_block = true;
+
+            // Update IDm
+            memcpy(idm, command + 16, 8);
             eeprom_busy_wait();
-            eeprom_update_block(sys, sys_eep, 2);
+            eeprom_update_block(idm, idm_eep, 8);
+
+            // Update PMm
+            memcpy(pmm, command + 24, 8);
+            eeprom_busy_wait();
+            eeprom_update_block(pmm, pmm_eep, 8);
         }
 
-        response[0] = 12; // length
+        // SER_C
+        if (block_num == 0x84)
+        {
+            valid_block = true;
 
-        response[10] = 0x00; // status flag 1
-        response[11] = 0x00; // status flag 2
+            uint16_t new_service_code = command[16] | (command[17] << 8);
+            service_code = new_service_code & SERVICE_MASK;
+            eeprom_busy_wait();
+            eeprom_update_word(&service_code_eep, service_code);
+        }
+
+        // SYS_C
+        if (block_num == 0x85)
+        {
+            valid_block = true;
+
+            memcpy(sys_code, command + 16, 2);
+            eeprom_busy_wait();
+            eeprom_update_block(sys_code, sys_code_eep, 2);
+        }
+
+        if (valid_block)
+        {
+            response[0] = 12; // length
+
+            response[10] = 0x00; // status flag 1
+            response[11] = 0x00; // status flag 2
+
+            return true;
+        }
+    }
+
+    // read/write service code
+    if (target_service_code != (service_code & SERVICE_MASK | 0x0009))
+    {
+        response[0] = 12;    // length
+        response[10] = 0xFF; // status flag 1
+        response[11] = 0xA6; // status flag 2
 
         return true;
     }
@@ -218,10 +255,6 @@ bool write_without_encryption(packet_t command)
         eeprom_busy_wait();
         eeprom_update_block(command + 14 + n * 2 + 16 * i, block_data_eep + 16 * block_num, 16);
     }
-
-    service_code = target_service_code;
-    eeprom_busy_wait();
-    eeprom_update_word(&service_code_eep, service_code);
 
     response[0] = 12; // length
 
@@ -284,7 +317,7 @@ packet_t process(packet_t command)
             return nullptr;
         if (response[10] != 0x00)
         {
-            Serial_print("Read failed: ");
+            Serial_println("Read failed");
             print_packet(command);
         }
         break;
@@ -299,7 +332,8 @@ packet_t process(packet_t command)
         response[0] = 12;
         if (command[10] == 0x00 && command[11] == 0x00)
         {
-            response[10] = service_code & 0xFF;
+            // read only service code
+            response[10] = (service_code & 0xFF) | 0x0B;
             response[11] = service_code >> 8;
         }
         else
@@ -315,8 +349,8 @@ packet_t process(packet_t command)
         response[0] = 13;
 
         response[10] = 1;
-        response[11] = sys[0];
-        response[12] = sys[1];
+        response[11] = sys_code[0];
+        response[12] = sys_code[1];
 
         break;
     case 0x02: // Request Service

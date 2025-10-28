@@ -489,6 +489,11 @@ void loop()
         return;
     }
 
+    // delay for Polling command
+    // 1000us + 1500us = 2.5ms
+    if (command[1] == 0x00)
+        _delay_us(1500);
+
     send_response(response);
 }
 
