@@ -75,6 +75,35 @@ bool polling(packet_t command)
     return true;
 }
 
+bool parse_block_list(int n, const uint8_t *block_list, uint8_t *block_nums)
+{
+    int j = 0;
+    for (int i = 0; i < n; i++)
+    {
+        if (block_list[j] == 0x80)
+        {
+            if (block_list[j + 1] >= BLOCK_MAX)
+                return false;
+            block_nums[i] = block_list[j + 1];
+            j += 2;
+        }
+        else if (block_list[j] == 0x00)
+        {
+            if (block_list[j + 2] != 0x00)
+                return false;
+            if (block_list[j + 1] >= BLOCK_MAX)
+                return false;
+            block_nums[i] = block_list[j + 1];
+            j += 3;
+        }
+        else
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool read_without_encryption(packet_t command)
 {
     int m = command[10];
@@ -90,6 +119,7 @@ bool read_without_encryption(packet_t command)
 
     uint16_t target_service_code = command[11] | (command[12] << 8);
 
+    // read only and read/write service code
     if ((target_service_code & SERVICE_MASK) != (service_code & SERVICE_MASK))
     {
         response[0] = 12;    // length
@@ -110,17 +140,13 @@ bool read_without_encryption(packet_t command)
         return true;
     }
 
-    for (int i = 0; i < n; i++)
+    uint8_t block_nums[BLOCK_MAX];
+    if (!parse_block_list(n, command + 14, block_nums))
     {
-        int block_num = command[14 + i * 2 + 1];
-
-        if (command[14 + i * 2] != 0x80 || block_num >= BLOCK_MAX)
-        {
-            response[0] = 12;    // length
-            response[10] = 0xFF; // status flag 1
-            response[11] = 0xA8; // status flag 2
-            return true;
-        }
+        response[0] = 12;    // length
+        response[10] = 0xFF; // status flag 1
+        response[11] = 0xA8; // status flag 2
+        return true;
     }
 
     response[0] = 13 + 16 * n; // length
@@ -132,7 +158,7 @@ bool read_without_encryption(packet_t command)
 
     for (int i = 0; i < n; i++)
     {
-        int block_num = command[14 + i * 2 + 1];
+        int block_num = block_nums[i];
 
         eeprom_busy_wait();
         eeprom_read_block(response + 13 + 16 * i, block_data_eep + 16 * block_num, 16);
@@ -158,15 +184,10 @@ bool write_without_encryption(packet_t command)
     }
 
     // write system block
-    if (target_service_code == 0x0009)
+    if (target_service_code == 0x0009 && n == 1 && command[14] == 0x80)
     {
-        if (!(n == 1 && command[14] == 0x80))
-            return false;
-
-        if (len != 32)
-            return false;
-
         int block_num = command[15];
+
         bool valid_block = false;
 
         // D_ID
@@ -235,6 +256,7 @@ bool write_without_encryption(packet_t command)
         return true;
     }
 
+    // TODO support 3-byte block list elements
     for (int i = 0; i < n; i++)
     {
         int block_num = command[14 + i * 2 + 1];
@@ -248,6 +270,7 @@ bool write_without_encryption(packet_t command)
         }
     }
 
+    // TODO check command length
     for (int i = 0; i < n; i++)
     {
         int block_num = command[14 + i * 2 + 1];
@@ -331,6 +354,12 @@ packet_t process(packet_t command)
 
         response[0] = 12;
         if (command[10] == 0x00 && command[11] == 0x00)
+        {
+            // read/write service code
+            response[10] = (service_code & 0xFF) | 0x09;
+            response[11] = service_code >> 8;
+        }
+        else if (command[10] == 0x01 && command[11] == 0x00)
         {
             // read only service code
             response[10] = (service_code & 0xFF) | 0x0B;
