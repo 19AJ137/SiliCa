@@ -505,8 +505,11 @@ void setup()
 void test_response()
 {
     static const uint8_t polling[20] = {20, 0x01, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xAB, 0xCD};
-    send_response(polling);
-    _delay_us(1000);
+    while (true)
+    {
+        send_response(polling);
+        _delay_us(1000);
+    }
 }
 
 // main loop
