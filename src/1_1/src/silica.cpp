@@ -9,11 +9,15 @@
 #include <util/delay.h>
 #include "silica.h"
 
+// data link layer header
 static const uint8_t header[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB2, 0x4D};
 
+// buffer for receiving data and command processing
 static uint8_t rx_buf[0x220] = {};
 static uint8_t command[0x110] = {};
 
+// Functions for serial output.
+// These functions perform blocking writes.
 void Serial_write(uint8_t data)
 {
     while (!(USART0.STATUS & USART_DREIF_bm))
@@ -35,6 +39,8 @@ void Serial_println(const char *str)
     Serial_print("\r\n");
 }
 
+// transfer one byte via SPI
+// Arduino SPI.transfer() equivalent
 uint8_t SPI_transfer(uint8_t data = 0)
 {
     while (!(SPI0.INTFLAGS & SPI_DREIF_bm))
@@ -45,6 +51,7 @@ uint8_t SPI_transfer(uint8_t data = 0)
     return SPI0.DATA;
 }
 
+// calculate CRC16-CCITT
 uint16_t crc16(const uint8_t *buf, int len)
 {
     uint16_t crc = 0;
@@ -53,6 +60,8 @@ uint16_t crc16(const uint8_t *buf, int len)
     return crc;
 }
 
+// capture frame from SPI
+// return length of captured data
 int capture_frame()
 {
     // wait for start of frame
@@ -64,6 +73,7 @@ int capture_frame()
         // end of frame
         if (data == 0x00 || data == 0xFF)
         {
+            // frame too short
             if (i < sizeof(header) * 2)
             {
                 i = -1;
@@ -79,6 +89,7 @@ int capture_frame()
     return 0;
 }
 
+// Debug: print captured frame to serial
 void print_frame(int rx_len)
 {
     for (int i = 0; i < rx_len; i++)
@@ -92,6 +103,8 @@ void print_frame(int rx_len)
     Serial_println("");
 }
 
+// determine bit shift from sync pattern
+// return -1 if not a valid sync pattern
 int get_shift_from_sync(uint8_t sync1, uint8_t sync2)
 {
     uint8_t a1 = sync1 & 0xAA;
@@ -120,7 +133,9 @@ int get_shift_from_sync(uint8_t sync1, uint8_t sync2)
     return -1;
 }
 
-int get_sync_index(int rx_len, int &shift, bool &invert)
+// find sync pattern in received data
+// return index of first sync byte
+int find_sync_index(int rx_len, int &shift, bool &invert)
 {
     for (int i = 0; i < rx_len - 1; i++)
     {
@@ -142,7 +157,9 @@ int get_sync_index(int rx_len, int &shift, bool &invert)
     return -1;
 }
 
-uint8_t extract_data(int shift, uint8_t data1, uint8_t data2, uint8_t data3)
+// extract one byte from 3 bytes of received data
+// according to the specified bit shift
+uint8_t extract_byte(int shift, uint8_t data1, uint8_t data2, uint8_t data3)
 {
     uint8_t x = 0;
 
@@ -302,8 +319,11 @@ uint8_t extract_data(int shift, uint8_t data1, uint8_t data2, uint8_t data3)
     return x;
 }
 
+// receive command packet from the reader
+// return null if error
 packet_t receive_command()
 {
+    // capture frame
     int rx_len = capture_frame();
     if (rx_len == 0)
     {
@@ -311,21 +331,24 @@ packet_t receive_command()
         return nullptr;
     }
 
+    // find sync pattern
     int shift = -1;
     bool invert;
-    int rx_index = get_sync_index(rx_len, shift, invert);
+    int rx_index = find_sync_index(rx_len, shift, invert);
     if (rx_index == -1)
     {
         Serial_println("Sync error");
         return nullptr;
     }
 
+    // skip sync pattern
     rx_index += 4;
 
+    // decode data
     int index = 0;
     for (int i = rx_index; i < rx_len - 2; i += 2)
     {
-        uint8_t x = extract_data(shift, rx_buf[i], rx_buf[i + 1], rx_buf[i + 2]);
+        uint8_t x = extract_byte(shift, rx_buf[i], rx_buf[i + 1], rx_buf[i + 2]);
 
         if (invert)
             x = ~x;
@@ -333,6 +356,7 @@ packet_t receive_command()
         command[index++] = x;
     }
 
+    // verify length
     int len = command[0];
     if (len + 2 > index)
     {
@@ -340,6 +364,7 @@ packet_t receive_command()
         return nullptr;
     }
 
+    // verify EDC (Error Detection Code)
     uint16_t calculated_edc = crc16(command, len);
     uint16_t received_edc = (command[len] << 8) | command[len + 1];
 
@@ -356,6 +381,7 @@ packet_t receive_command()
     return command;
 }
 
+// enable or disable transmission
 void enable_transmit(bool enable)
 {
     // flash buffer
@@ -368,6 +394,7 @@ void enable_transmit(bool enable)
         CCL.CTRLA = 0;
 }
 
+// transmit one byte with manchester encoding
 void transmit_byte(uint8_t data)
 {
     static const uint8_t table[16] = {0x55, 0x56, 0x59, 0x5A, 0x65, 0x66, 0x69, 0x6A, 0x95, 0x96, 0x99, 0x9A, 0xA5, 0xA6, 0xA9, 0xAA};
@@ -376,6 +403,8 @@ void transmit_byte(uint8_t data)
     SPI_transfer(table[data & 0xF]);
 }
 
+// send response packet to the reader
+// null response means no response
 void send_response(packet_t response)
 {
     if (response == nullptr)
@@ -403,6 +432,7 @@ void send_response(packet_t response)
     enable_transmit(false);
 }
 
+// system initialization
 void setup()
 {
     // configure system clock: set fclk to fc/4 (3.39MHz) using an external clock source
@@ -461,13 +491,17 @@ void setup()
     USART0.BAUD = 118; // 115200bps
     USART0.CTRLB = USART_TXEN_bm;
 
+    // application layer initialization
     initialize();
 
+    // print version info
     Serial_println("SiliCa v1.1");
     Serial_print("Build on: ");
     Serial_println(__DATE__);
 }
 
+// test response for debugging
+// send a fixed polling response repeatedly
 void test_response()
 {
     static const uint8_t polling[20] = {20, 0x01, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xAB, 0xCD};
@@ -475,6 +509,8 @@ void test_response()
     _delay_us(1000);
 }
 
+// main loop
+// process commands continuously
 void loop()
 {
     packet_t command = receive_command();
@@ -497,6 +533,7 @@ void loop()
     send_response(response);
 }
 
+// Arduino-style main function
 int main()
 {
     setup();
