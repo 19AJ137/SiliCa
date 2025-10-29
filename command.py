@@ -117,7 +117,7 @@ def main(argv=None) -> int:
         return 3
 
     try:
-        target = clf.sense(RemoteTarget(POLLING_TARGET))
+        target = clf.sense(RemoteTarget(POLLING_TARGET), iterations=10, interval=0.1)
         if target is None:
             print("No card", file=sys.stderr)
             return 1
