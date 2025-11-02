@@ -26,7 +26,6 @@ static uint8_t response[0xFF] = {};
 void initialize()
 {
     // read IDm, PMm, System Code from EEPROM
-    eeprom_busy_wait();
     eeprom_read_block(idm, idm_eep, 8);
     eeprom_read_block(pmm, pmm_eep, 8);
 
@@ -165,7 +164,6 @@ bool read_without_encryption(packet_t command)
     {
         int block_num = block_nums[i];
 
-        eeprom_busy_wait();
         eeprom_read_block(response + 13 + 16 * i, block_data_eep + 16 * block_num, 16);
     }
 
@@ -204,12 +202,10 @@ bool write_without_encryption(packet_t command)
 
             // Update IDm
             memcpy(idm, command + 16, 8);
-            eeprom_busy_wait();
             eeprom_update_block(idm, idm_eep, 8);
 
             // Update PMm
             memcpy(pmm, command + 24, 8);
-            eeprom_busy_wait();
             eeprom_update_block(pmm, pmm_eep, 8);
         }
 
@@ -222,7 +218,6 @@ bool write_without_encryption(packet_t command)
 
             uint16_t new_service_code = command[16] | (command[17] << 8);
             service_code = new_service_code & SERVICE_MASK;
-            eeprom_busy_wait();
             eeprom_update_word(&service_code_eep, service_code);
         }
 
@@ -234,7 +229,6 @@ bool write_without_encryption(packet_t command)
                 return false;
 
             memcpy(sys_code, command + 16, 2);
-            eeprom_busy_wait();
             eeprom_update_block(sys_code, sys_code_eep, 2);
         }
 
@@ -292,7 +286,6 @@ bool write_without_encryption(packet_t command)
     {
         int block_num = command[14 + i * 2 + 1];
 
-        eeprom_busy_wait();
         eeprom_update_block(command + 14 + n * 2 + 16 * i, block_data_eep + 16 * block_num, 16);
     }
 
