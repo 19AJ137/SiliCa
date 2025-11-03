@@ -74,7 +74,7 @@ bool polling(packet_t command)
     return true;
 }
 
-bool parse_block_list(int n, const uint8_t *block_list, uint8_t *block_nums)
+int parse_block_list(int n, const uint8_t *block_list, uint8_t *block_nums)
 {
     int j = 0;
     for (int i = 0; i < n; i++)
@@ -83,7 +83,7 @@ bool parse_block_list(int n, const uint8_t *block_list, uint8_t *block_nums)
         {
             // 2-byte block list element
             if (block_list[j + 1] >= BLOCK_MAX)
-                return false;
+                return 0;
             block_nums[i] = block_list[j + 1];
             j += 2;
         }
@@ -91,18 +91,19 @@ bool parse_block_list(int n, const uint8_t *block_list, uint8_t *block_nums)
         {
             // 3-byte block list element
             if (block_list[j + 2] != 0x00)
-                return false;
+                return 0;
             if (block_list[j + 1] >= BLOCK_MAX)
-                return false;
+                return 0;
             block_nums[i] = block_list[j + 1];
             j += 3;
         }
         else
         {
-            return false;
+            return 0;
         }
     }
-    return true;
+    // size of block list
+    return j;
 }
 
 bool read_without_encryption(packet_t command)
@@ -144,7 +145,7 @@ bool read_without_encryption(packet_t command)
     }
 
     uint8_t block_nums[BLOCK_MAX];
-    if (!parse_block_list(n, command + 14, block_nums))
+    if (parse_block_list(n, command + 14, block_nums) == 0)
     {
         response[0] = 12;    // length
         response[10] = 0xFF; // status flag 1
@@ -262,31 +263,26 @@ bool write_without_encryption(packet_t command)
         return true;
     }
 
-    // validate block list
-    for (int i = 0; i < n; i++)
+    uint8_t block_nums[BLOCK_MAX];
+    int N = parse_block_list(n, command + 14, block_nums);
+    if (N == 0)
     {
-        int block_num = command[14 + i * 2 + 1];
-
-        // TODO support 3-byte block list elements
-        if (command[14 + i * 2] != 0x80 || block_num >= BLOCK_MAX)
-        {
-            response[0] = 12;    // length
-            response[10] = 0xFF; // status flag 1
-            response[11] = 0xA8; // status flag 2
-            return true;
-        }
+        response[0] = 12;    // length
+        response[10] = 0xFF; // status flag 1
+        response[11] = 0xA8; // status flag 2
+        return true;
     }
 
     // check length
-    if (len < 14 + n * 2 + 16 * n)
+    if (len != 14 + N + 16 * n)
         return false;
 
     // write block data to EEPROM
     for (int i = 0; i < n; i++)
     {
-        int block_num = command[14 + i * 2 + 1];
+        int block_num = block_nums[i];
 
-        eeprom_update_block(command + 14 + n * 2 + 16 * i, block_data_eep + 16 * block_num, 16);
+        eeprom_update_block(command + 14 + N + 16 * i, block_data_eep + 16 * block_num, 16);
     }
 
     response[0] = 12; // length
