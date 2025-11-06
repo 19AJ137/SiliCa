@@ -6,14 +6,17 @@
 #include <avr/eeprom.h>
 #include "silica.h"
 
+static constexpr int BLOCK_MAX = 12;
+static constexpr int SYSTEM_MAX = 4;
+static constexpr int SERVICE_MAX = 4;
+
+constexpr int LAST_ERROR_SIZE = 2;
+
 static uint8_t idm[8];
 static uint8_t pmm[8];
 
 static uint8_t EEMEM idm_eep[8];
 static uint8_t EEMEM pmm_eep[8];
-
-static constexpr int SERVICE_MAX = 8;
-static constexpr int SYSTEM_MAX = 8;
 
 static uint8_t service_code[2 * SERVICE_MAX];
 static uint8_t system_code[2 * SYSTEM_MAX];
@@ -21,12 +24,9 @@ static uint8_t system_code[2 * SYSTEM_MAX];
 static uint8_t EEMEM service_code_eep[2 * SERVICE_MAX];
 static uint8_t EEMEM system_code_eep[2 * SYSTEM_MAX];
 
-static constexpr int BLOCK_MAX = 8;
 static uint8_t EEMEM block_data_eep[16 * BLOCK_MAX];
 
 static const int ERROR_BLOCK = 0xE0;
-
-constexpr int LAST_ERROR_SIZE = 4;
 static uint8_t EEMEM last_error_eep[16 * LAST_ERROR_SIZE];
 
 static uint8_t response[0xFF] = {};
@@ -199,7 +199,10 @@ bool read_without_encryption(packet_t command)
     uint8_t block_nums[BLOCK_MAX];
     if (parse_block_list(n, command + 14, block_nums) == 0)
     {
-        // return false;
+        response[0] = 12;    // length
+        response[10] = 0xFF; // status flag 1
+        response[11] = 0xA6; // status flag 2
+        return true;
     }
 
     // load block data from EEPROM
@@ -268,6 +271,14 @@ bool write_without_encryption(packet_t command)
 
     uint8_t block_nums[BLOCK_MAX];
     int N = parse_block_list(n, command + 14, block_nums);
+
+    if (N == 0)
+    {
+        response[0] = 12;    // length
+        response[10] = 0xFF; // status flag 1
+        response[11] = 0xA6; // status flag 2
+        return true;
+    }
 
     // check length
     if (len != 14 + N + 16 * n)
