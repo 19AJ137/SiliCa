@@ -14,6 +14,7 @@ void Serial_println(const char *);
 // application layer functions
 void initialize();
 packet_t process(packet_t);
+void save_error(packet_t);
 
 // debug functions
 void print_packet(packet_t);

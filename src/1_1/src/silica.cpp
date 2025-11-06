@@ -524,6 +524,7 @@ void loop()
     if (response == nullptr)
     {
         Serial_println("Unsupported command");
+        save_error(command);
         print_packet(command);
         return;
     }
