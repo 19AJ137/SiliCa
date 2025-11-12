@@ -107,6 +107,30 @@ bool polling(packet_t command)
     return true;
 }
 
+bool request_service(packet_t command)
+{
+    if (command[0] < 11)
+        return false;
+
+    // number of nodes
+    int n = command[10];
+    if (!(1 <= n && n <= 32))
+        return false;
+
+    response[0] = 11 + 2 * n;
+
+    response[10] = n;
+
+    // always return key version 0
+    for (int i = 0; i < n; i++)
+    {
+        response[11 + 2 * i] = 0x00;
+        response[12 + 2 * i] = 0x00;
+    }
+
+    return true;
+}
+
 int parse_block_list(int n, const uint8_t *block_list, uint8_t *block_nums)
 {
     int j = 0;
@@ -438,6 +462,10 @@ packet_t process(packet_t command)
 
     switch (command_code)
     {
+    case 0x02: // Request Service
+        if (!request_service(command))
+            return nullptr;
+        break;
     case 0x04: // Request Response
         if (len != 10)
             return nullptr;
@@ -478,9 +506,7 @@ packet_t process(packet_t command)
         if (!request_system_code())
             return nullptr;
         break;
-    case 0x02: // Request Service
     case 0x10: // Authentication1
-    case 0x12: // Authentication2
     // pass through for unsupported commands
     default:
         return nullptr;
