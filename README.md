@@ -11,7 +11,7 @@
 
 また、`SiliCa` では、実際の `FeliCa` カードで書き換えが不可能な `IDm` やシステムコードなどのパラメータを自由に書き換えることができます。
 
-詳細な仕様や使用方法については、寄稿予定の同人誌 [rand_r(&v3)](https://example.com/not_yet_published) をご参照ください。
+詳細な仕様や使用方法については、寄稿した同人誌 [rand_r(&v3)](https://techbookfest.org/product/an6q3RzcSM0RcWQBevrEM9) をご参照ください。
 
 ## 回路図
 
