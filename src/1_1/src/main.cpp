@@ -246,6 +246,27 @@ bool read_without_encryption(packet_t command)
             valid_block = true;
             eeprom_read_block(response + 13 + 16 * i, last_error_eep + (block_num - ERROR_BLOCK) * 16, 16);
         }
+        // D_ID
+        if (n == 1 && block_num == 0x83)
+        {
+            valid_block = true;
+            memcpy(response + 13, idm, 8);
+            memcpy(response + 21, pmm, 8);
+        }
+        // SER_C
+        if (n == 1 && block_num == 0x84)
+        {
+            valid_block = true;
+            memcpy(response + 13, service_code, 2 * SERVICE_MAX);
+            memset(response + 13 + 2 * SERVICE_MAX, 0x00, 16 - 2 * SERVICE_MAX);
+        }
+        // SYS_C
+        if (n == 1 && block_num == 0x85)
+        {
+            valid_block = true;
+            memcpy(response + 13, system_code, 2 * SYSTEM_MAX);
+            memset(response + 13 + 2 * SYSTEM_MAX, 0x00, 16 - 2 * SYSTEM_MAX);
+        }
 
         if (!valid_block)
         {
