@@ -37,6 +37,11 @@ def write_system_block(tag: nfc.tag.Tag, block_num: int, data: bytes, timeout: f
     cmd_data = bytearray([1, 0xFF, 0xFF, 1, 0x80, block_num]) + data
     tag.send_cmd_recv_rsp(COMMAND_WRITE, bytes(cmd_data), timeout)
 
+    if block_num == 0x83:
+        tag.idm = data[0:8]  # Update IDm if written
+    # Second write to ensure data is written correctly
+    tag.send_cmd_recv_rsp(COMMAND_WRITE, bytes(cmd_data), timeout)
+
 
 def parse_hex_parameter(s: str) -> Optional[bytes]:
     try:
