@@ -1,7 +1,9 @@
 // Application layer implementation for SiliCa
 // JIS X 6319-4 compatible card implementation
 
-#include <stdio.h>
+// Define DEBUG to enable debug output (comment out for release build)
+// #define DEBUG
+
 #include <string.h>
 #include <avr/eeprom.h>
 #include "application.h"
@@ -23,7 +25,9 @@ static uint8_t EEMEM block_data_eep[16 * BLOCK_MAX];
 static uint8_t EEMEM last_error_eep[16 * LAST_ERROR_SIZE];
 
 // Response buffer
-static uint8_t response[0xFF] = {};
+// Maximum size: Read response with 12 blocks = 13 + 16*12 = 205 bytes
+static constexpr int RESPONSE_BUF_SIZE = 208;
+static uint8_t response[RESPONSE_BUF_SIZE];
 
 // ============================================================================
 // Initialization
@@ -479,8 +483,10 @@ packet_t process(packet_t command)
         if (response[10] != 0x00)
         {
             save_error(command);
+#ifdef DEBUG
             Serial_println("Read failed");
             print_packet(command);
+#endif
         }
         break;
 
@@ -517,6 +523,13 @@ packet_t process(packet_t command)
 // Debug Functions
 // ============================================================================
 
+#ifdef DEBUG
+// Fast hex character conversion (no sprintf)
+static inline char hex_char(uint8_t nibble)
+{
+    return nibble < 10 ? '0' + nibble : 'A' + (nibble - 10);
+}
+
 void print_packet(packet_t packet)
 {
     int len = packet[0];
@@ -528,11 +541,14 @@ void print_packet(packet_t packet)
 
     for (int i = 1; i < len; i++)
     {
-        char hex_str[5];
-        sprintf(hex_str, "%02X", packet[i]);
-        Serial_print(hex_str);
+        Serial_write(hex_char(packet[i] >> 4));
+        Serial_write(hex_char(packet[i] & 0x0F));
         if (i != len - 1)
-            Serial_print(" ");
+            Serial_write(' ');
     }
     Serial_println("");
 }
+#else
+// No-op in release build
+void print_packet(packet_t) {}
+#endif

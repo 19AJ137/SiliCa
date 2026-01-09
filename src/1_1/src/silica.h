@@ -13,4 +13,5 @@ typedef const uint8_t *packet_t;
 void Serial_write(uint8_t data);
 void Serial_print(const char *str);
 void Serial_println(const char *str);
+
 void save_error(packet_t);
