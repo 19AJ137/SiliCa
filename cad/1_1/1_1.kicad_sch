@@ -1624,6 +1624,16 @@
 	)
 	(wire
 		(pts
+			(xy 131.572 123.19) (xy 131.572 125.73)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0e071d76-714b-4152-85e3-46e1cd18e14b")
+	)
+	(wire
+		(pts
 			(xy 125.222 91.948) (xy 125.222 88.646)
 		)
 		(stroke
@@ -1701,6 +1711,16 @@
 			(type default)
 		)
 		(uuid "30928134-d572-4b4c-a951-edb36a313d6f")
+	)
+	(wire
+		(pts
+			(xy 130.556 123.19) (xy 131.572 123.19)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "34e6f794-e133-463e-a131-b3d5a94180f1")
 	)
 	(wire
 		(pts
@@ -1854,6 +1874,16 @@
 	)
 	(wire
 		(pts
+			(xy 232.156 47.244) (xy 231.14 47.244)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b8673623-913a-49e4-98fc-0c40146a77a3")
+	)
+	(wire
+		(pts
 			(xy 125.984 64.008) (xy 125.984 61.976)
 		)
 		(stroke
@@ -1951,16 +1981,6 @@
 			(type default)
 		)
 		(uuid "e43f9af1-830b-4d13-bec8-b35365f83d74")
-	)
-	(wire
-		(pts
-			(xy 232.156 47.244) (xy 231.14 47.244)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f08f531b-645b-4e8c-accd-a8d690914f73")
 	)
 	(wire
 		(pts
@@ -2110,28 +2130,6 @@
 					(size 1.27 1.27)
 				)
 				(justify right)
-				(hide yes)
-			)
-		)
-	)
-	(global_label "RxD"
-		(shape input)
-		(at 231.14 49.784 0)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left)
-		)
-		(uuid "1f62251a-e83b-4c2b-a5d7-fb33b7edf97f")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 237.6933 49.784 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify left)
 				(hide yes)
 			)
 		)
@@ -2290,6 +2288,26 @@
 			)
 		)
 	)
+	(global_label "TxD"
+		(shape output)
+		(at 232.156 47.244 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "632d1ffe-c492-4286-ac81-f7ed2011d1c7")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 232.156 47.244 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+	)
 	(global_label "SCK"
 		(shape input)
 		(at 200.66 67.564 180)
@@ -2356,6 +2374,26 @@
 			)
 		)
 	)
+	(global_label "RxD"
+		(shape input)
+		(at 231.14 49.784 0)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify left)
+		)
+		(uuid "79016436-385a-48a6-960a-725c780be3e7")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 231.14 49.784 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+	)
 	(global_label "MOSI"
 		(shape input)
 		(at 200.66 72.644 180)
@@ -2369,28 +2407,6 @@
 		(uuid "807ff242-38c6-4253-80b0-3e08a412c06e")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
 			(at 193.0786 72.644 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(justify right)
-				(hide yes)
-			)
-		)
-	)
-	(global_label "TxD"
-		(shape input)
-		(at 131.572 125.73 180)
-		(fields_autoplaced yes)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify right)
-		)
-		(uuid "890b930d-88c6-42a8-b922-efed9420b37a")
-		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 125.3211 125.73 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -2445,23 +2461,23 @@
 		)
 	)
 	(global_label "TxD"
-		(shape output)
-		(at 232.156 47.244 0)
+		(shape input)
+		(at 131.572 125.73 180)
 		(fields_autoplaced yes)
 		(effects
 			(font
 				(size 1.27 1.27)
 			)
-			(justify left)
+			(justify right)
 		)
-		(uuid "99167562-2c77-411e-97e3-39dc5698f297")
+		(uuid "93ea9afb-fc2c-428b-9e43-9e11a94cd039")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 238.4069 47.244 0)
+			(at 125.3211 125.73 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
-				(justify left)
+				(justify right)
 				(hide yes)
 			)
 		)
@@ -2528,6 +2544,26 @@
 					(size 1.27 1.27)
 				)
 				(justify left)
+				(hide yes)
+			)
+		)
+	)
+	(global_label "RxD"
+		(shape output)
+		(at 130.556 123.19 180)
+		(effects
+			(font
+				(size 1.27 1.27)
+			)
+			(justify right)
+		)
+		(uuid "c2a6880f-6322-4395-a640-4e9e88a4d385")
+		(property "Intersheetrefs" "${INTERSHEET_REFS}"
+			(at 130.556 123.19 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
 				(hide yes)
 			)
 		)
