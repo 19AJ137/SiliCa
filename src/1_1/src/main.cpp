@@ -3,12 +3,10 @@
 
 #include "physical.h"
 
-int main()
-{
-    setup();
+int main() {
+  setup();
 
-    while (true)
-    {
-        loop();
-    }
+  while (true) {
+    loop();
+  }
 }

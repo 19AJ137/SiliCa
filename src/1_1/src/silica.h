@@ -4,6 +4,10 @@
 #pragma once
 #include <stdint.h>
 
+// Debug build toggle (single source of truth for every layer).
+// Uncomment to enable serial debug output; leave commented for release builds.
+// #define DEBUG
+
 // Application layer packet type.
 // The first element indicates the total length of the packet.
 typedef const uint8_t *packet_t;
